@@ -1,0 +1,94 @@
+---
+title: "ML Course Project"
+author: "Philong Ho"
+date: "3/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Predicting the Manner of Barbell Lift Activity
+
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+# Overview
+I used two different models to predict the manner in which the 6 participants decided to complete each of the 6 barbell lift activities. A decision tree and random forest model would best model this scenario because it deals with the manner of decision making. I found that my decision tree model only had 76% accuracy whereas my random forest model had 99% accuracy on the training set. 
+
+# Cleaning the Data
+Let's first take a look at the data. We'll look at the training data since it includes our "classe" variable that we'll be working with.
+
+```{r, message = FALSE, warning = FALSE}
+library(caret)
+library(rpart)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile = "./training.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile = "./testing.csv")
+
+training <- read.csv("training.csv", na.strings = c("NA", "#DIV/0!", ""))
+testing <- read.csv("testing.csv", na.strings = c("NA", "#DIV/0!", ""))
+
+str(training)
+```
+
+We can see that it is a data frame of 19622 observations of 160 variables. We can see a lot of NA values and also the first 7 variables are unncessary for our analysis. Let's get rid of as many of them as we can. 
+
+```{r}
+training <- training[, colSums(is.na(training)) == 0]
+testing <- testing[, colSums(is.na(testing)) == 0]
+
+training <- training[, -c(1:7)]
+testing <- testing[, -c(1:7)]
+```
+
+Now we have our tidy data sets. Since our testing set does not contain the classe variable, we will be unable to check the accuracy of our prediction test. Therefore, we will do cross validation on our training set and subsample our set into a subtrain and subtest set. 
+
+```{r}
+inTrain <- createDataPartition(y = training$classe, p = 0.7, list = FALSE)
+subtrain <- training[inTrain, ]
+subtest <- training[-inTrain, ]
+```
+
+# Decision Tree Model
+First, we'll look at the decision tree model as it is the simplest to start with because it doesn't perform any bagging or boosting methods. I have also included a plot of our model for better visualization.
+
+```{r}
+set.seed(1995)
+modfit.dec <- rpart(classe ~ ., method = "class", data = subtrain)
+fancyRpartPlot(modfit.dec)
+pred.dec <- predict(modfit.dec, subtest, type = "class")
+confusionMatrix(pred.dec, subtest$classe)
+```
+
+We can see from our confusionMatrix that the accuracy of this model is only 76%. We can visually see this from the table where there are many values outside of the diagonals. These are the values that were misclassified and contributes to our inaccuracy. 
+
+Now, we'll look at a random forest model which uses resampling to hopefully increase our accuracy. 
+
+```{r}
+modfit.rf <- randomForest(classe ~ ., data = subtrain)
+pred.rf <- predict(modfit.rf, subtest, type = "class")
+confusionMatrix(pred.rf, subtest$classe)
+```
+
+Now we can see that our model is 99% accurate and there are very little to no values outside of the diagonals. This is by far our best model out of the two we looked at. 
+
+We will now use this model on our testing set but we will be unable to look at the accuracy of the model because the testing set does not contain our "classe" variable. 
+
+```{r}
+pred.test <- predict(modfit.rf, newdata = testing, type = "class")
+table(pred.test)
+```
