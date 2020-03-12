@@ -90,5 +90,5 @@ We will now use this model on our testing set but we will be unable to look at t
 
 ```{r}
 pred.test <- predict(modfit.rf, newdata = testing, type = "class")
-table(pred.test)
+pred.test
 ```
